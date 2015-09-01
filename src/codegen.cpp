@@ -6188,6 +6188,8 @@ static inline SmallVector<std::string,10> getTargetFeatures() {
   return attr;
 }
 
+extern "C" void jl_init_debuginfo(void);
+
 extern "C" void jl_init_codegen(void)
 {
     const char *const argv_tailmerge[] = {"", "-enable-tail-merge=0"}; // NOO TOUCHIE; NO TOUCH! See #922
@@ -6205,6 +6207,7 @@ extern "C" void jl_init_codegen(void)
 #else
     imaging_mode = jl_generating_output();
 #endif
+    jl_init_debuginfo();
 
 #if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR <= 3
     // this option disables LLVM's signal handlers
