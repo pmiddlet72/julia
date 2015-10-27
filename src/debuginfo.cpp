@@ -688,7 +688,7 @@ void jl_getDylibFunctionInfo(char **name, char **filename, size_t *line,
             }
 #ifdef LLVM36
             llvm::object::MachOObjectFile *morigobj = (llvm::object::MachOObjectFile *)origerrorobj.get().release();
-#elif LLVM35
+#elif defined(LLVM35)
             llvm::object::MachOObjectFile *morigobj = (llvm::object::MachOObjectFile *)origerrorobj.get();
 #else
             llvm::object::MachOObjectFile *morigobj = (llvm::object::MachOObjectFile *)origerrorobj;
@@ -724,11 +724,11 @@ void jl_getDylibFunctionInfo(char **name, char **filename, size_t *line,
 #endif
 #endif // ifdef _OS_DARWIN_
             if (errorobj) {
-#if LLVM36
+#ifdef LLVM36
                 auto binary = errorobj.get().takeBinary();
                 obj = binary.first.release();
                 binary.second.release();
-#elif LLVM35
+#elif defined(LLVM35)
                 obj = errorobj.get();
 #else
                 obj = errorobj;
@@ -738,7 +738,7 @@ void jl_getDylibFunctionInfo(char **name, char **filename, size_t *line,
 #endif
 #ifdef LLVM37
                     context = new DWARFContextInMemory(*obj);
-#elif LLVM36
+#elif defined(LLVM36)
                     context = DIContext::getDWARFContext(*obj);
 #else
                     context = DIContext::getDWARFContext(obj);
