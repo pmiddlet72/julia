@@ -552,7 +552,7 @@ getindex(x::AbstractSparseVector, ::Colon) = copy(x)
 ### show and friends
 
 function showarray(io::IO, x::AbstractSparseVector;
-                   header::Bool=true, limit::Bool=Base._limit_output,
+                   header::Bool=true, limit::Bool=Base.limit_output(io),
                    rows = Base.tty_size()[1], repr=false)
 
     n = length(x)
@@ -583,7 +583,7 @@ function summary(x::AbstractSparseVector)
 end
 
 show(io::IO, x::AbstractSparseVector) = showarray(io, x)
-writemime(io::IO, ::MIME"text/plain", x::AbstractSparseVector) = Base.with_output_limit(()->show(io, x))
+writemime(io::IO, ::MIME"text/plain", x::AbstractSparseVector) = show(IOContext(io, true), x)
 
 ### Conversion to matrix
 

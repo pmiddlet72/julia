@@ -1,8 +1,59 @@
 # This file is a part of Julia. License is MIT: http://julialang.org/license
 
 show(x) = show(STDOUT::IO, x)
-
 print(io::IO, s::Symbol) = (write(io,s);nothing)
+
+immutable IOContext{IO_t <: IO} <: AbstractPipe
+    io::IO_t
+    lock::ReentrantLock
+    limit_output::Bool
+    hasproperty::Bool
+    propertykey::Any
+    propertyvalue::Any
+    parent::IOContext
+    function IOContext(io::IO, limit_output::Bool=false)
+        assert(!isa(io, IOContext))
+        new(io, ReentrantLock(), limit_output, false, nothing, nothing, #=null=#)
+    end
+    function IOContext(io::IO, KV::Pair)
+        assert(!isa(io, IOContext))
+        new(io, ReentrantLock(), false, true, first(KV), last(KV), #=null=#)
+    end
+    IOContext(io::IOContext, limit_output::Bool) =
+        new(io.io, io.lock, limit_output, false, nothing, nothing, io)
+    IOContext(io::IOContext, KV::Pair) =
+        new(io.io, io.lock, io.limit_output, true, first(KV), last(KV), io)
+end
+IOContext(io::IO, arg=false) = IOContext{typeof(io)}(io, arg)
+IOContext(io::IOContext, arg=io.limit_output) = typeof(io)(io, arg)
+IOContext(io::IOContext, key, value) = typeof(io)(io, Pair{Any, Any}(key, value))
+show(io::IO, ctx::IOContext) = (print(io, "IOContext("); show(io, ctx.io); print(io, ")"))
+
+pipe_reader(io::IOContext) = io.io
+pipe_writer(io::IOContext) = io.io
+lock(io::IOContext) = (lock(io.io); lock(io.lock)) # double lock, because IO itself might not be lockable
+unlock(io::IOContext) = (unlock(io.io); unlock(io.lock))
+
+limit_output(::ANY) = false
+limit_output(io::IOContext) = io.limit_output
+function in{I<:IOContext}(value, io_key::Pair{I})
+    io, key = io_key
+    io.hasproperty && io.propertykey == key && io.propertyvalue == value && return true
+    isdefined(io, :parent) && return in(value, io.parent => key)
+    return false
+end
+in{I<:IO}(value, io_key::Pair{I}) = false
+
+function getindex(io::IOContext, key)
+    io.hasproperty && io.propertykey == key && return io.propertyvalue
+    isdefined(io, :parent) && return getindex(io.parent, key)
+    throw(KeyError(key))
+end
+function get(io::IOContext, key, default)
+    io.hasproperty && io.propertykey == key && return io.propertyvalue
+    isdefined(io, :parent) && return get(io.parent, key, default)
+    return default
+end
 
 show(io::IO, x::ANY) = show_default(io, x)
 function show_default(io::IO, x::ANY)
@@ -11,37 +62,21 @@ function show_default(io::IO, x::ANY)
     print(io, '(')
     nf = nfields(t)
     if nf != 0 || t.size==0
-        recorded = false
-        shown_set = get(task_local_storage(), :SHOWNSET, nothing)
-        if shown_set === nothing
-            shown_set = ObjectIdDict()
-            task_local_storage(:SHOWNSET, shown_set)
-        end
-
-        try
-            if x in keys(shown_set)
-                print(io, "#= circular reference =#")
-            else
-                shown_set[x] = true
-                recorded = true
-
-                for i=1:nf
-                    f = fieldname(t, i)
-                    if !isdefined(x, f)
-                        print(io, undef_ref_str)
-                    else
-                        show(io, x.(f))
-                    end
-                    if i < nf
-                        print(io, ',')
-                    end
+        if x in (io => :SHOWN_SET)
+            print(io, "#= circular reference =#")
+        else
+            recur_io = IOContext(io, :SHOWN_SET => x)
+            for i=1:nf
+                f = fieldname(t, i)
+                if !isdefined(x, f)
+                    print(io, undef_ref_str)
+                else
+                    show(recur_io, x.(f))
+                end
+                if i < nf
+                    print(io, ',')
                 end
             end
-        catch e
-            rethrow(e)
-
-        finally
-            if recorded; delete!(shown_set, x); end
         end
     else
         nb = t.size
@@ -117,8 +152,8 @@ end
 showcompact(io::IO, x) = show(io, x)
 showcompact(x) = showcompact(STDOUT::IO, x)
 
-showcompact_lim(io, x) = _limit_output ? showcompact(io, x) : show(io, x)
-showcompact_lim(io, x::Number) = _limit_output ? showcompact(io, x) : print(io, x)
+showcompact_lim(io, x) = limit_output(io) ? showcompact(io, x) : show(io, x)
+showcompact_lim(io, x::Number) = limit_output(io) ? showcompact(io, x) : print(io, x)
 
 macro show(exs...)
     blk = Expr(:block)
@@ -358,6 +393,9 @@ end
 
 ## AST printing helpers ##
 
+typeemphasize(::IO) = false
+typeemphasize(io::IOContext) = get(io, :TYPEEMPHASIZE, false)::Bool
+
 const indent_width = 4
 
 function show_expr_type(io::IO, ty)
@@ -366,7 +404,7 @@ function show_expr_type(io::IO, ty)
     elseif is(ty, IntrinsicFunction)
         print(io, "::I")
     else
-        emph = get(task_local_storage(), :TYPEEMPHASIZE, false)::Bool
+        emph = typeemphasize(io)
         if emph && !isleaftype(ty)
             emphasize(io, "::$ty")
         else
@@ -494,7 +532,6 @@ end
 function show_unquoted(io::IO, ex::Expr, indent::Int, prec::Int)
     head, args, nargs = ex.head, ex.args, length(ex.args)
     show_type = true
-    emphstate = get(task_local_storage(), :TYPEEMPHASIZE, false)
     # dot (i.e. "x.y")
     if is(head, :(.))
         show_unquoted(io, args[1], indent + indent_width)
@@ -545,7 +582,7 @@ function show_unquoted(io::IO, ex::Expr, indent::Int, prec::Int)
         if (in(ex.args[1], (GlobalRef(Base, :box), TopNode(:box), :throw)) ||
             ismodulecall(ex) ||
             (ex.typ === Any && is_intrinsic_expr(ex.args[1])))
-            show_type = task_local_storage(:TYPEEMPHASIZE, false)
+            show_type = typeemphasize(io)
         end
 
         # scalar multiplication (i.e. "100x")
@@ -765,9 +802,10 @@ function show_unquoted(io::IO, ex::Expr, indent::Int, prec::Int)
     # print anything else as "Expr(head, args...)"
     else
         show_type = false
-        emph = get(task_local_storage(), :TYPEEMPHASIZE, false)::Bool &&
-               (ex.head === :lambda || ex.head == :method)
-        task_local_storage(:TYPEEMPHASIZE, emph)
+        emphstate = typeemphasize(io)
+        if emphstate && ex.head !== :lambda && ex.head !== method
+            io = IOContext(io, :TYPEEMPHASIZE => false)
+        end
         print(io, "\$(Expr(")
         show(io, ex.head)
         for arg in args
@@ -783,7 +821,6 @@ function show_unquoted(io::IO, ex::Expr, indent::Int, prec::Int)
         show_type = false
     end
     show_type && show_expr_type(io, ex.typ)
-    task_local_storage(:TYPEEMPHASIZE, emphstate)
 end
 
 function ismodulecall(ex::Expr)
@@ -1246,11 +1283,6 @@ function show_nd(io::IO, a::AbstractArray, limit, print_matrix, label_slices)
     end
 end
 
-# global flag for limiting output
-# TODO: this should be replaced with a better mechanism. currently it is only
-# for internal use in showing arrays.
-_limit_output = false
-
 """
 `print_matrix_repr(io, X)` prints matrix X with opening and closing square brackets.
 """
@@ -1282,7 +1314,7 @@ end
 # array output. Not sure I want to do it this way.
 showarray(X::AbstractArray; kw...) = showarray(STDOUT, X; kw...)
 function showarray(io::IO, X::AbstractArray;
-                   header::Bool=true, limit::Bool=_limit_output,
+                   header::Bool=true, limit::Bool=limit_output(io),
                    sz = (s = tty_size(); (s[1]-4, s[2])), repr=false)
     rows, cols = sz
     header && print(io, summary(X))
@@ -1318,38 +1350,23 @@ function showarray(io::IO, X::AbstractArray;
     end
 end
 
-show(io::IO, X::AbstractArray) = showarray(io, X, header=_limit_output, repr=!_limit_output)
-
-function with_output_limit(thk, lim=true) # thk is usually show()
-    global _limit_output
-    last = _limit_output
-    _limit_output = lim
-    try
-        thk()
-    finally
-        _limit_output = last
-    end
-end
+show(io::IO, X::AbstractArray) = showarray(io, X, header=limit_output(io), repr=!limit_output(io))
 
 showall(x) = showall(STDOUT, x)
 function showall(io::IO, x)
-    if _limit_output==false
+    if !limit_output(io)
         show(io, x)
     else
-        with_output_limit(false) do
-            show(io, x)
-        end
+        show(IOContext(io, false), x)
     end
 end
 
 showlimited(x) = showlimited(STDOUT, x)
 function showlimited(io::IO, x)
-    if _limit_output==true
+    if limit_output(io)
         show(io, x)
     else
-        with_output_limit(true) do
-            show(io, x)
-        end
+        show(IOContext(io, true), x)
     end
 end
 
@@ -1369,7 +1386,7 @@ end
 function show_vector(io::IO, v, opn, cls)
     compact, prefix = array_eltype_show_how(v)
     print(io, prefix)
-    if _limit_output && length(v) > 20
+    if limit_output(io) && length(v) > 20
         show_delim_array(io, v, opn, ",", "", false, compact, 1, 10)
         print(io, "  \u2026  ")
         n = length(v)

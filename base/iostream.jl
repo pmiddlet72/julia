@@ -200,10 +200,14 @@ function takebuf_raw(s::IOStream)
     return buf, sz
 end
 
-function sprint(size::Integer, f::Function, args...)
+function sprint(size::Integer, f::Function, args...; limit=false)
     s = IOBuffer(Array(UInt8,size), true, true)
     truncate(s,0)
-    f(s, args...)
+    if limit
+        f(IOContext(s, true), args...)
+    else
+        f(s, args...)
+    end
     takebuf_string(s)
 end
 
