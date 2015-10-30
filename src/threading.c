@@ -47,7 +47,7 @@ DLLEXPORT int16_t jl_threadid() { return ti_tid; }
 struct _jl_thread_heap_t *jl_mk_thread_heap(void);
 // must be called by each thread at startup
 
-void ti_initthread(int16_t tid)
+static void ti_initthread(int16_t tid)
 {
     ti_tid = tid;
     jl_pgcstack = NULL;
@@ -65,6 +65,21 @@ void ti_initthread(int16_t tid)
     jl_all_task_states[tid].signal_stack = jl_install_thread_signal_handler();
     jl_all_task_states[tid].bt_data = bt_data;
     jl_all_task_states[tid].pbt_size = &bt_size;
+}
+
+static void ti_init_master_thread()
+{
+#ifdef _OS_WINDOWS_
+    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
+                         GetCurrentProcess(), &jl_all_task_states[0].system_id, 0,
+                         TRUE, DUPLICATE_SAME_ACCESS)) {
+        jl_printf(JL_STDERR, "WARNING: failed to access handle to main thread\n");
+        jl_all_task_states[0].system_id = INVALID_HANDLE_VALUE;
+    }
+#else
+    jl_all_task_states[0].system_id = pthread_self();
+#endif
+    ti_initthread(0);
 }
 
 // all threads call this function to run user code
@@ -241,7 +256,7 @@ void jl_init_threading(void)
 #endif
 
     // initialize this master thread (set tid, create heap, etc.)
-    ti_initthread(0);
+    ti_init_master_thread();
 }
 
 void jl_start_threads(void)
@@ -264,16 +279,6 @@ void jl_start_threads(void)
         ti_threadsetaffinity(uv_thread_self(), 0);
 
     // create threads
-#ifdef _OS_WINDOWS_
-    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentThread(),
-                         GetCurrentProcess(), &jl_all_task_states[0].system_id, 0,
-                         TRUE, DUPLICATE_SAME_ACCESS)) {
-        jl_printf(JL_STDERR, "WARNING: failed to access handle to main thread\n");
-        jl_all_task_states[0].system_id = INVALID_HANDLE_VALUE;
-    }
-#else
-    jl_all_task_states[0].system_id = pthread_self();
-#endif
     targs = malloc((jl_n_threads - 1) * sizeof (ti_threadarg_t *));
 
     uv_barrier_init(&thread_init_done, jl_n_threads);
@@ -480,7 +485,7 @@ void jl_init_threading(void)
             sig_stack_size = 1<<16;
 #endif
 
-    ti_initthread(0);
+    ti_init_master_thread();
 }
 
 void jl_start_threads(void) { }
