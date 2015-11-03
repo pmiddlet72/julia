@@ -209,7 +209,7 @@ void jl_start_threads(void)
 {
     char *cp, mask[UV_CPU_SETSIZE];
     int i, exclusive;
-    uv_thread_t ptid;
+    uv_thread_t uvtid;
     ti_threadarg_t **targs;
 
     // do we have exclusive use of the machine? default is no
@@ -224,8 +224,8 @@ void jl_start_threads(void)
     if (exclusive) {
         memset(mask, 0, UV_CPU_SETSIZE);
         mask[0] = 1;
-        ptid = uv_thread_self();
-        uv_thread_setaffinity(&ptid, mask, NULL, UV_CPU_SETSIZE);
+        uvtid = (uv_thread_t)uv_thread_self();
+        uv_thread_setaffinity(&uvtid, mask, NULL, UV_CPU_SETSIZE);
     }
 
     // create threads
@@ -234,13 +234,13 @@ void jl_start_threads(void)
         targs[i] = (ti_threadarg_t *)malloc(sizeof (ti_threadarg_t));
         targs[i]->state = TI_THREAD_INIT;
         targs[i]->tid = i + 1;
-        uv_thread_create(&ptid, ti_threadfun, targs[i]);
+        uv_thread_create(&uvtid, ti_threadfun, targs[i]);
         if (exclusive) {
             memset(mask, 0, UV_CPU_SETSIZE);
             mask[i+1] = 1;
-            uv_thread_setaffinity(&ptid, mask, NULL, UV_CPU_SETSIZE);
+            uv_thread_setaffinity(&uvtid, mask, NULL, UV_CPU_SETSIZE);
         }
-        uv_thread_detach(&ptid);
+        uv_thread_detach(&uvtid);
     }
 
     // set up the world thread group
