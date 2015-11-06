@@ -1083,7 +1083,7 @@ static void add_builtin(const char *name, jl_value_t *v)
 jl_lambda_info_t *jl_method_cache_insert(jl_methtable_t *mt, jl_tupletype_t *type,
                                          jl_lambda_info_t *method);
 
-static jl_value_t *mk_builtin_func(const char *name, jl_fptr_t fptr)
+jl_value_t *jl_mk_builtin_func(const char *name, jl_fptr_t fptr)
 {
     jl_datatype_t *ftype = jl_new_datatype(jl_symbol(name), jl_builtin_type, jl_emptysvec,
                                            jl_emptysvec, jl_emptysvec, 0, 0, 0);
@@ -1098,7 +1098,7 @@ static jl_value_t *mk_builtin_func(const char *name, jl_fptr_t fptr)
 
 static void add_builtin_func(const char *name, jl_fptr_t fptr)
 {
-    add_builtin(name, mk_builtin_func(name, fptr));
+    add_builtin(name, jl_mk_builtin_func(name, fptr));
 }
 
 void jl_init_primitives(void)

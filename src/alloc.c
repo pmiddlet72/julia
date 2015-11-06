@@ -332,7 +332,6 @@ jl_lambda_info_t *jl_copy_lambda_info(jl_lambda_info_t *linfo)
     new_linfo->unspecialized = linfo->unspecialized;
     new_linfo->specializations = linfo->specializations;
     new_linfo->def = linfo->def;
-    new_linfo->capt = linfo->capt;
     new_linfo->file = linfo->file;
     new_linfo->line = linfo->line;
     new_linfo->fptr = linfo->fptr;
@@ -509,6 +508,7 @@ jl_typename_t *jl_new_typename_in(jl_sym_t *name, jl_module_t *module)
     tn->linearcache = jl_emptysvec;
     tn->names = NULL;
     tn->uid = jl_assign_type_uid();
+    tn->mt = NULL;
     JL_GC_PUSH1(&tn);
     tn->mt = jl_new_method_table(name, module);
     jl_gc_wb(tn, tn->mt);

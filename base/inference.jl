@@ -86,7 +86,7 @@ function _topmod()
     return ccall(:jl_base_relative_to, Any, (Any,), m)::Module
 end
 
-function istopfunction(topmod, f, sym)
+function istopfunction(topmod, f::ANY, sym)
     if isdefined(Main, :Base) && isdefined(Main.Base, sym) && f === getfield(Main.Base, sym)
         return true
     elseif isdefined(topmod, sym) && f === getfield(topmod, sym)
@@ -458,7 +458,7 @@ function tuple_tfunc(argtype::ANY)
     argtype
 end
 
-function builtin_tfunction(f::ANY, args::ANY, argtype::ANY, vtypes::ObjectIdDict, sv::StaticVarInfo)
+function builtin_tfunction(f::ANY, args::ANY, argtype::ANY)
     isva = isvatuple(argtype)
     argtypes = argtype.parameters
     if is(f,tuple)
@@ -512,12 +512,6 @@ function builtin_tfunction(f::ANY, args::ANY, argtype::ANY, vtypes::ObjectIdDict
         # wrong # of args
         return Bottom
     end
-    if isdefined(f, :code)
-        try # in case the user tfunc fails
-            return tf[3](argtypes, args, vtypes, sv)
-        end
-        return Any
-    end
     if is(f,typeassert) || is(f,getfield) || is(f,apply_type) || is(f,fieldtype)
         # TODO: case of apply(), where we do not have the args
         return tf[3](args, argtypes...)
@@ -559,7 +553,7 @@ function isconstantref(f::ANY, sv::StaticVarInfo)
         return false
     end
     if isa(f,QuoteNode)
-        return f.value
+        return f
     elseif isa(f,GenSym)
         return false
     elseif isa(f,SymbolNode)
@@ -853,7 +847,7 @@ end
     return typeof(v)
 end
 
-function pure_eval_call(f, fargs, argtypes, sv, e)
+function pure_eval_call(f::ANY, fargs, argtypes::ANY, sv, e)
     if !isconstantargs(fargs, argtypes, sv)
         return false
     end
@@ -961,7 +955,8 @@ function abstract_call(f::ANY, fargs, argtypes::Vector{Any}, vtypes, sv::StaticV
         return Any
     end
     if isa(f,Builtin) || isa(f,IntrinsicFunction)
-        return builtin_tfunction(f, fargs, Tuple{argtypes...})
+        rt = builtin_tfunction(f, fargs, Tuple{argtypes...})
+        return isa(rt, TypeVar) ? rt.ub : rt
     end
     return abstract_call_gf(f, fargs, Tuple{argtypes...}, e)
 end
@@ -1987,7 +1982,7 @@ const _pure_builtins = Any[tuple, svec, fieldtype, apply_type, is, isa, typeof, 
 # known effect-free calls (might not be affect-free)
 const _pure_builtins_volatile = Any[getfield, arrayref]
 
-function is_pure_builtin(f)
+function is_pure_builtin(f::ANY)
     if contains_is(_pure_builtins, f)
         return true
     end
@@ -2160,7 +2155,7 @@ function inlineable(f::ANY, e::Expr, atype::ANY, sv::StaticVarInfo, enclosing_as
         return NF
     end
 
-    local methfunc::Function
+    local methfunc
     meth = _methods(f, atype, 1)
     if meth === false || length(meth) != 1
         return NF

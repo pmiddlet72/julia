@@ -2888,7 +2888,7 @@ static jl_cgval_t emit_call_function_object(jl_lambda_info_t *li, jl_cgval_t the
         call->setAttributes(cf->getAttributes());
         return sret ? mark_julia_slot(result, jlretty) : mark_julia_type(call, retboxed, jlretty);
     }
-    return mark_julia_type(emit_jlcall(theFptr, boxed(theF,ctx), &args[1], nargs, ctx), jl_any_type); // (typ will be patched up by caller)
+    return mark_julia_type(emit_jlcall(theFptr, boxed(theF,ctx), &args[1], nargs, ctx), true, jl_any_type); // (typ will be patched up by caller)
 }
 
 static jl_cgval_t emit_call(jl_value_t **args, size_t arglen, jl_codectx_t *ctx, jl_value_t *expr)
@@ -2942,7 +2942,7 @@ static jl_cgval_t emit_call(jl_value_t **args, size_t arglen, jl_codectx_t *ctx,
                         !jl_is_leaf_type(f)) {
                         jl_add_linfo_root(ctx->linfo, f);
                     }
-                    fval = mark_julia_type(literal_pointer_val((jl_value_t*)f), jl_typeof(f));
+                    fval = mark_julia_type(literal_pointer_val((jl_value_t*)f), true, jl_typeof(f));
                 }
                 else {
                     fval = emit_expr(args[0], ctx);
@@ -2974,7 +2974,7 @@ static jl_cgval_t emit_call(jl_value_t **args, size_t arglen, jl_codectx_t *ctx,
     callval = builder.CreateCall2(prepare_call(jlapplygeneric_func),
                                   myargs, ConstantInt::get(T_int32, nargs + 1));
 #endif
-    result = mark_julia_type(callval, expr_type(expr, ctx));
+    result = mark_julia_type(callval, true, expr_type(expr, ctx));
 
     ctx->gc.argDepth = argStart; // remove the arguments from the gc stack
     JL_GC_POP();
@@ -4197,7 +4197,9 @@ static Function *emit_function(jl_lambda_info_t *lam)
     if ((jl_array_len(jl_lam_staticparams(ast)) == 0) != (jl_svec_len(sparams) == 0)) // TODO: more accurate check
         jl_error("wrong number of static-parameters on LambdaStaticData");
 
-    assert(lam->specTypes); // this could happen if the user tries to compile a generic-function
+    if (!lam->specTypes)  // TODO jb/functions
+        lam->specTypes = jl_anytuple_type;
+    //assert(lam->specTypes); // this could happen if the user tries to compile a generic-function
                             // without specializing (or unspecializing) it first
                             // compiling this would cause all specializations to inherit
                             // this code and could create an broken compile / function cache
@@ -5520,9 +5522,9 @@ static void init_julia_llvm_env(Module *m)
     add_named_global(queuerootfun, (void*)&jl_gc_queue_root);
 
     std::vector<Type *> agargs(0);
-    agargs.push_back(jl_ppvalue_llvmt);
+    agargs.push_back(T_ppjlvalue);
     agargs.push_back(T_uint32);
-    jlapplygeneric_func = Function::Create(FunctionType::get(jl_pvalue_llvmt, agargs, false),
+    jlapplygeneric_func = Function::Create(FunctionType::get(T_pjlvalue, agargs, false),
                                            Function::ExternalLinkage,
                                            "jl_apply_generic", m);
     add_named_global(jlapplygeneric_func, (void*)&jl_apply_generic);

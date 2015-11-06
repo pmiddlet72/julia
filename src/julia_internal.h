@@ -124,10 +124,10 @@ jl_value_t *jl_type_match_morespecific(jl_value_t *a, jl_value_t *b);
 int jl_types_equal_generic(jl_value_t *a, jl_value_t *b, int useenv);
 jl_datatype_t *jl_inst_concrete_tupletype_v(jl_value_t **p, size_t np);
 jl_datatype_t *jl_inst_concrete_tupletype(jl_svec_t *p);
-jl_function_t *jl_method_cache_insert(jl_methtable_t *mt, jl_tupletype_t *type,
-                                      jl_function_t *method);
+jl_lambda_info_t *jl_method_cache_insert(jl_methtable_t *mt, jl_tupletype_t *type,
+                                         jl_lambda_info_t *method);
 jl_methlist_t *jl_method_table_insert(jl_methtable_t *mt, jl_tupletype_t *type,
-                                      jl_function_t *method, jl_svec_t *tvars,
+                                      jl_lambda_info_t *method, jl_svec_t *tvars,
                                       int8_t isstaged);
 
 void jl_set_datatype_super(jl_datatype_t *tt, jl_value_t *super);
@@ -175,10 +175,6 @@ void jl_dump_bitcode(char *fname, const char *sysimg_data, size_t sysimg_len);
 void jl_dump_objfile(char *fname, int jit_model, const char *sysimg_data, size_t sysimg_len);
 int32_t jl_get_llvm_gv(jl_value_t *p);
 void jl_idtable_rehash(jl_array_t **pa, size_t newsz);
-
-#ifdef _OS_LINUX_
-DLLEXPORT void jl_read_sonames(void);
-#endif
 
 jl_methtable_t *jl_new_method_table(jl_sym_t *name, jl_module_t *module);
 jl_lambda_info_t *jl_add_static_parameters(jl_lambda_info_t *l, jl_svec_t *sp, jl_tupletype_t *types);
