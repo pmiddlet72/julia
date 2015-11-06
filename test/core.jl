@@ -689,7 +689,7 @@ let A = [1]
 end
 
 # Module() constructor
-@test names(Module(:anonymous), true, true) != [:anonymous]
+@test names(Module(:anonymous), true, true) == [:anonymous]
 @test names(Module(:anonymous, false), true, true) == [:anonymous]
 
 # exception from __init__()

@@ -964,6 +964,7 @@ end
 function abstract_eval_call(e, vtypes, sv::StaticVarInfo)
     fargs = e.args[2:end]
     argtypes = Any[abstract_eval(a, vtypes, sv) for a in fargs]
+    #print("call ", e.args[1], argtypes, "\n\n")
     if any(x->is(x,Bottom), argtypes)
         return Bottom
     end
@@ -971,11 +972,15 @@ function abstract_eval_call(e, vtypes, sv::StaticVarInfo)
     func = isconstantfunc(called, sv)
     if is(func,false)
         ft = abstract_eval(called, vtypes, sv)
-        # TODO jb/functions: take advantage of case where a non-constant function's type is known
-        return Any
+        if isType(ft) && !isa(ft.parameters[1],TypeVar)
+            f = ft.parameters[1]
+        else
+            # TODO jb/functions: take advantage of case where a non-constant function's type is known
+            return Any
+        end
+    else
+        f = _ieval(func)
     end
-    #print("call ", e.args[1], argtypes, "\n\n")
-    f = _ieval(func)
     if isa(called, Expr)
         # if called thing is a constant, still make sure it gets annotated with a type.
         # issue #11997
