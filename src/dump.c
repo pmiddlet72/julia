@@ -70,12 +70,12 @@ static htable_t fptr_to_id;
 // (reverse of fptr_to_id)
 static jl_fptr_t id_to_fptrs[] = {
   NULL, NULL,
-  jl_f_throw, jl_f_is, jl_f_no_function, jl_f_typeof, jl_f_subtype, jl_f_isa,
-  jl_f_typeassert, jl_f_apply, jl_f_isdefined, jl_f_tuple, jl_f_svec,
-  jl_f_get_field, jl_f_set_field, jl_f_field_type, jl_f_nfields,
-  jl_f_arrayref, jl_f_arrayset, jl_f_arraysize, jl_f_instantiate_type,
+  jl_f_throw, jl_f_is, jl_f_typeof, jl_f_issubtype, jl_f_isa,
+  jl_f_typeassert, jl_f__apply, jl_f_isdefined, jl_f_tuple, jl_f_svec,
+  jl_f_getfield, jl_f_setfield, jl_f_fieldtype, jl_f_nfields,
+  jl_f_arrayref, jl_f_arrayset, jl_f_arraysize, jl_f_apply_type,
   jl_f_kwcall, jl_f_applicable, jl_f_invoke,
-  jl_unprotect_stack, jl_f_sizeof, jl_f_new_expr,
+  jl_unprotect_stack, jl_f_sizeof, jl_f__expr,
   jl_f_intrinsic_call,
   NULL };
 
@@ -1767,6 +1767,7 @@ DLLEXPORT ios_t *jl_create_system_image()
 
 extern jl_function_t *jl_typeinf_func;
 extern int jl_boot_file_loaded;
+extern void jl_get_builtins(void);
 extern void jl_get_builtin_hooks(void);
 extern void jl_get_system_hooks(void);
 
@@ -1839,6 +1840,7 @@ void jl_restore_system_image_from_stream(ios_t *f)
     }
     datatype_list = NULL;
 
+    jl_get_builtins();
     jl_get_builtin_hooks();
     if (jl_base_module) {
         jl_get_system_hooks();

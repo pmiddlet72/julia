@@ -40,8 +40,6 @@ void jl_add_standard_imports(jl_module_t *m)
     assert(jl_base_module != NULL);
     // using Base
     jl_module_using(m, jl_base_module);
-    // import Base.call
-    jl_module_import(m, jl_base_module, jl_symbol("call"));
     m->std_imports = 1;
 }
 

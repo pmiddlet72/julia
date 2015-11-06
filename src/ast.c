@@ -1020,7 +1020,7 @@ int jl_local_in_ast(jl_expr_t *ast, jl_sym_t *sym)
         jl_in_sym_array(jl_lam_staticparams(ast), sym);
 }
 
-JL_CALLABLE(jl_f_get_field);
+extern jl_value_t *jl_builtin_getfield;
 
 static jl_value_t *resolve_globals(jl_value_t *expr, jl_lambda_info_t *lam)
 {
@@ -1044,8 +1044,6 @@ static jl_value_t *resolve_globals(jl_value_t *expr, jl_lambda_info_t *lam)
                  e->head == line_sym || e->head == meta_sym) {
         }
         else {
-            // TODO jb/functions
-            /*
             if (e->head == call_sym && jl_expr_nargs(e) == 3 && jl_is_quotenode(jl_exprarg(e,2)) &&
                 lam->module != NULL) {
                 // replace getfield(module_expr, :sym) with GlobalRef
@@ -1054,7 +1052,7 @@ static jl_value_t *resolve_globals(jl_value_t *expr, jl_lambda_info_t *lam)
                 if (jl_is_symbol(s) && jl_is_topnode(fe)) {
                     jl_value_t *f = jl_static_eval(fe, NULL, lam->module,
                                                    NULL, (jl_expr_t*)lam->ast, 0, 0);
-                    if (f && jl_is_func(f) && ((jl_function_t*)f)->fptr == &jl_f_get_field) {
+                    if (f == jl_builtin_getfield) {
                         jl_value_t *me = jl_exprarg(e,1);
                         if (jl_is_topnode(me) ||
                             (jl_is_symbol(me) && jl_binding_resolved_p(lam->module,(jl_sym_t*)me))) {
@@ -1066,7 +1064,6 @@ static jl_value_t *resolve_globals(jl_value_t *expr, jl_lambda_info_t *lam)
                     }
                 }
             }
-            */
             size_t i = 0;
             if (e->head == method_sym || e->head == abstracttype_sym || e->head == compositetype_sym ||
                 e->head == bitstype_sym || e->head == macro_sym || e->head == module_sym)

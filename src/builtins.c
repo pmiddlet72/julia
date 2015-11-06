@@ -307,12 +307,6 @@ JL_CALLABLE(jl_f_is)
     return jl_egal(args[0],args[1]) ? jl_true : jl_false;
 }
 
-JL_CALLABLE(jl_f_no_function)
-{
-    jl_error("invalid function object");
-    return jl_nothing;
-}
-
 JL_CALLABLE(jl_f_typeof)
 {
     JL_NARGS(typeof, 1, 1);
@@ -347,7 +341,7 @@ JL_CALLABLE(jl_f_sizeof)
     return jl_box_long(jl_datatype_size(dt));
 }
 
-JL_CALLABLE(jl_f_subtype)
+JL_CALLABLE(jl_f_issubtype)
 {
     JL_NARGS(subtype, 2, 2);
     if (!jl_is_typevar(args[0]))
@@ -381,13 +375,12 @@ JL_CALLABLE(jl_f_typeassert)
 
 static jl_function_t *jl_append_any_func;
 
-JL_CALLABLE(jl_f_apply)
+JL_CALLABLE(jl_f__apply)
 {
     JL_NARGSV(apply, 1);
     jl_function_t *f = args[0];
     if (nargs == 2) {
-        /* TODO jb/functions
-        if (f->fptr == &jl_f_svec) {
+        if (f == jl_builtin_svec) {
             if (jl_is_svec(args[1]))
                 return args[1];
             if (jl_is_array(args[1])) {
@@ -401,7 +394,6 @@ JL_CALLABLE(jl_f_apply)
                 return (jl_value_t*)t;
             }
         }
-        */
         if (jl_is_svec(args[1])) {
             return jl_apply(f, jl_svec_data(args[1]), jl_svec_len(args[1]));
         }
@@ -650,7 +642,7 @@ JL_CALLABLE(jl_f_svec)
 
 // composite types ------------------------------------------------------------
 
-JL_CALLABLE(jl_f_get_field)
+JL_CALLABLE(jl_f_getfield)
 {
     JL_NARGS(getfield, 2, 2);
     jl_value_t *v = args[0];
@@ -679,7 +671,7 @@ JL_CALLABLE(jl_f_get_field)
     return fval;
 }
 
-JL_CALLABLE(jl_f_set_field)
+JL_CALLABLE(jl_f_setfield)
 {
     JL_NARGS(setfield!, 3, 3);
     jl_value_t *v = args[0];
@@ -709,7 +701,7 @@ JL_CALLABLE(jl_f_set_field)
     return args[2];
 }
 
-JL_CALLABLE(jl_f_field_type)
+JL_CALLABLE(jl_f_fieldtype)
 {
     JL_NARGS(fieldtype, 2, 2);
     jl_datatype_t *st = (jl_datatype_t*)args[0];
@@ -927,9 +919,9 @@ void jl_show(jl_value_t *stream, jl_value_t *v)
 
 // internal functions ---------------------------------------------------------
 
-JL_CALLABLE(jl_f_instantiate_type)
+JL_CALLABLE(jl_f_apply_type)
 {
-    JL_NARGSV(instantiate_type, 1);
+    JL_NARGSV(apply_type, 1);
     if (!jl_is_datatype(args[0]) && !jl_is_typector(args[0])) {
         jl_type_error("Type{...} expression", (jl_value_t*)jl_type_type, args[0]);
     }
@@ -1096,6 +1088,12 @@ jl_value_t *jl_mk_builtin_func(const char *name, jl_fptr_t fptr)
     return f;
 }
 
+jl_fptr_t jl_get_builtin_fptr(jl_value_t *b)
+{
+    assert(jl_subtype(b, jl_builtin_type, 1));
+    return jl_gf_mtable(b)->cache->func->fptr;
+}
+
 static void add_builtin_func(const char *name, jl_fptr_t fptr)
 {
     add_builtin(name, jl_mk_builtin_func(name, fptr));
@@ -1106,16 +1104,16 @@ void jl_init_primitives(void)
     add_builtin_func("is", jl_f_is);
     add_builtin_func("typeof", jl_f_typeof);
     add_builtin_func("sizeof", jl_f_sizeof);
-    add_builtin_func("issubtype", jl_f_subtype);
+    add_builtin_func("issubtype", jl_f_issubtype);
     add_builtin_func("isa", jl_f_isa);
     add_builtin_func("typeassert", jl_f_typeassert);
     add_builtin_func("throw", jl_f_throw);
     add_builtin_func("tuple", jl_f_tuple);
 
     // field access
-    add_builtin_func("getfield",  jl_f_get_field);
-    add_builtin_func("setfield!",  jl_f_set_field);
-    add_builtin_func("fieldtype", jl_f_field_type);
+    add_builtin_func("getfield",  jl_f_getfield);
+    add_builtin_func("setfield!",  jl_f_setfield);
+    add_builtin_func("fieldtype", jl_f_fieldtype);
     add_builtin_func("nfields", jl_f_nfields);
     add_builtin_func("isdefined", jl_f_isdefined);
 
@@ -1129,10 +1127,10 @@ void jl_init_primitives(void)
     add_builtin_func("invoke", jl_f_invoke);
 
     // internal functions
-    add_builtin_func("apply_type", jl_f_instantiate_type);
-    add_builtin_func("_apply", jl_f_apply);
+    add_builtin_func("apply_type", jl_f_apply_type);
+    add_builtin_func("_apply", jl_f__apply);
     add_builtin_func("kwcall", jl_f_kwcall);
-    add_builtin_func("_expr", jl_f_new_expr);
+    add_builtin_func("_expr", jl_f__expr);
     add_builtin_func("svec", jl_f_svec);
 
     // builtin types

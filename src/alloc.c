@@ -882,7 +882,7 @@ jl_expr_t *jl_exprn(jl_sym_t *head, size_t n)
     return ex;
 }
 
-JL_CALLABLE(jl_f_new_expr)
+JL_CALLABLE(jl_f__expr)
 {
     JL_NARGSV(Expr, 1);
     JL_TYPECHK(Expr, symbol, args[0]);

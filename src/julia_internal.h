@@ -86,15 +86,12 @@ DLLEXPORT void jl_typeassert(jl_value_t *x, jl_value_t *t);
     DLLEXPORT jl_value_t *name(jl_value_t *F, jl_value_t **args, uint32_t nargs)
 
 JL_CALLABLE(jl_unprotect_stack);
-JL_CALLABLE(jl_f_no_function);
 JL_CALLABLE(jl_f_tuple);
 JL_CALLABLE(jl_f_intrinsic_call);
 extern jl_function_t *jl_unprotect_stack_func;
 void jl_install_default_signal_handlers(void);
 
-// TODO jb/functions more efficient version of this
-// test whether f is the builtin with the given name
-#define jl_is_builtin(f,name) ((f)==jl_get_global(jl_core_module,jl_symbol(#name)))
+jl_fptr_t jl_get_builtin_fptr(jl_value_t *b);
 
 extern jl_datatype_t *jl_box_type;
 extern jl_value_t *jl_box_any_type;

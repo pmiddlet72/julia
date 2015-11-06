@@ -143,7 +143,7 @@ static jl_value_t *eval(jl_value_t *e, jl_value_t **locals, size_t nl, size_t ng
     if (!jl_is_expr(e)) {
         if (jl_is_globalref(e)) {
             jl_value_t *gfargs[2] = {(jl_value_t*)jl_globalref_mod(e), (jl_value_t*)jl_globalref_name(e)};
-            return jl_f_get_field(NULL, gfargs, 2);
+            return jl_f_getfield(NULL, gfargs, 2);
         }
         if (jl_is_linenode(e)) {
             jl_lineno = jl_linenode_line(e);
@@ -262,7 +262,7 @@ static jl_value_t *eval(jl_value_t *e, jl_value_t **locals, size_t nl, size_t ng
         if (jl_is_lambda_info(args[2])) {
             jl_check_static_parameter_conflicts((jl_lambda_info_t*)args[2], (jl_svec_t*)jl_svecref(atypes,1), fname);
         }
-        meth = args[2];//eval(args[2], locals, nl, ngensym);
+        meth = args[2];
         assert(jl_is_lambda_info(meth));
         jl_method_def(fname, bp, bp_owner, b, (jl_svec_t*)atypes, (jl_lambda_info_t*)meth, args[3], kw);
         JL_GC_POP();

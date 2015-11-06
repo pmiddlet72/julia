@@ -20,6 +20,9 @@
 
 #include "julia.h"
 #include "julia_internal.h"
+#define DEFINE_BUILTIN_GLOBALS
+#include "builtin_proto.h"
+#undef DEFINE_BUILTIN_GLOBALS
 #include "threading.h"
 
 #ifdef __cplusplus
@@ -249,6 +252,7 @@ DLLEXPORT void jl_atexit_hook(int exitcode)
 }
 
 void jl_get_builtin_hooks(void);
+void jl_get_builtins(void);
 
 DLLEXPORT void *jl_dl_handle;
 void *jl_RTLD_DEFAULT_handle;
@@ -562,6 +566,7 @@ void _julia_init(JL_IMAGE_SEARCH rel)
         jl_top_module = jl_core_module;
         jl_init_intrinsic_functions();
         jl_init_primitives();
+        jl_get_builtins();
 
         jl_new_main_module();
         jl_internal_main_module = jl_main_module;
@@ -780,6 +785,22 @@ DLLEXPORT void jl_get_system_hooks(void)
     jl_loaderror_type = (jl_datatype_t*)basemod("LoadError");
     jl_initerror_type = (jl_datatype_t*)basemod("InitError");
     jl_complex_type = (jl_datatype_t*)basemod("Complex");
+}
+
+void jl_get_builtins(void)
+{
+    jl_builtin_throw = core("throw");           jl_builtin_is = core("is");
+    jl_builtin_typeof = core("typeof");         jl_builtin_sizeof = core("sizeof");
+    jl_builtin_issubtype = core("issubtype");   jl_builtin_isa = core("isa");
+    jl_builtin_typeassert = core("typeassert"); jl_builtin__apply = core("_apply");
+    jl_builtin_kwcall = core("kwcall");         jl_builtin_isdefined = core("isdefined");
+    jl_builtin_tuple = core("tuple");           jl_builtin_svec = core("svec");
+    jl_builtin_getfield = core("getfield");     jl_builtin_setfield = core("setfield!");
+    jl_builtin_fieldtype = core("fieldtype");   jl_builtin_arrayref = core("arrayref");
+    jl_builtin_arrayset = core("arrayset");     jl_builtin_arraysize = core("arraysize");
+    jl_builtin_apply_type = core("apply_type"); jl_builtin_applicable = core("applicable");
+    jl_builtin_invoke = core("invoke");         jl_builtin__expr = core("_expr");
+    jl_builtin_nfields = core("nfields");
 }
 
 #ifdef __cplusplus
