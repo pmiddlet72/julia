@@ -40,11 +40,8 @@ include(joinpath(dir, "queens.jl"))
     script = joinpath(dir, "clustermanager/simple/test_simple.jl")
     cmd = `$(Base.julia_cmd()) $script`
 
-    (strm, proc) = open(cmd)
-    errors = readall(strm)
     wait(proc)
-    if !success(proc) && ccall(:jl_running_on_valgrind,Cint,()) == 0
-        println(errors);
+    if !success(pipeline(cmd; stdout=STDOUT, stderr=STDERR)) && ccall(:jl_running_on_valgrind,Cint,()) == 0
         error("UnixDomainCM failed test, cmd : $cmd")
     end
 end

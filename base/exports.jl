@@ -61,6 +61,7 @@ export
     FileOffset,
     Filter,
     FloatRange,
+    Future,
     Hermitian,
     UniformScaling,
     InsertionSort,
@@ -1199,6 +1200,7 @@ export
 
 # multiprocessing
     addprocs,
+    channel_from_id,
     ClusterManager,
     fetch,
     init_worker,
@@ -1215,6 +1217,7 @@ export
     remotecall,
     remotecall_fetch,
     remotecall_wait,
+    remoteref_id,
     rmprocs,
     take!,
     timedwait,

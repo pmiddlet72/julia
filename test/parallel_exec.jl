@@ -11,15 +11,15 @@ id_other = filter(x -> x != id_me, procs())[rand(1:(nprocs()-1))]
 @test @fetchfrom id_other begin myid() end == id_other
 @fetch begin myid() end
 
-rr=RemoteRef()
-@test typeof(rr) == RemoteRef{Channel{Any}}
+rr=Future()
+@test typeof(rr) == Future
 a = rand(5,5)
 put!(rr, a)
 @test rr[2,3] == a[2,3]
 @test rr[] == a
 
-rr=RemoteRef(workers()[1])
-@test typeof(rr) == RemoteRef{Channel{Any}}
+rr=Future(workers()[1])
+@test typeof(rr) == Future
 a = rand(5,5)
 put!(rr, a)
 @test rr[1,5] == a[1,5]
